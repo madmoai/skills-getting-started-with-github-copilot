@@ -22,11 +22,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Build participants list markup
         const participants = details.participants || [];
-        const participantsMarkup = participants.length
-          ? `<ul class="participants-list">${participants
-              .map((p) => `<li class="participant-item">${escapeHtml(p)}</li>`)
-              .join("")}</ul>`
-          : `<p class="participants-empty">None yet — be the first!</p>`;
+          const participantsMarkup = participants.length
+            ? `<ul class="participants-list">${participants
+                .map((p) => `
+                  <li class="participant-item">
+                    <span class="participant-name">${escapeHtml(p)}</span>
+                    <button class="participant-delete" title="Remove participant" data-activity="${escapeHtml(name)}" data-email="${escapeHtml(p)}" aria-label="Remove ${escapeHtml(p)}">
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="8" cy="8" r="8" fill="#ff5252"/>
+                        <path d="M5 5l6 6M11 5l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                      </svg>
+                    </button>
+                  </li>
+                `)
+                .join("")}
+              </ul>`
+            : `<p class="participants-empty">None yet — be the first!</p>`;
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
@@ -95,6 +106,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize app
   fetchActivities();
+
+  // Delegate click for delete buttons
+  activitiesList.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".participant-delete");
+    if (!btn) return;
+    const activity = btn.getAttribute("data-activity");
+    const email = btn.getAttribute("data-email");
+    btn.disabled = true;
+    btn.classList.add("pending");
+    try {
+      // Unregister participant via API
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        const result = await response.json();
+        alert(result.detail || "Failed to remove participant.");
+        btn.disabled = false;
+        btn.classList.remove("pending");
+        return;
+      }
+      // Refresh activities list
+      fetchActivities();
+    } catch (err) {
+      btn.disabled = false;
+      btn.classList.remove("pending");
+      alert("Network error. Please try again.");
+    }
+  });
 
   // Small utility to avoid injecting raw HTML from data
   function escapeHtml(unsafe) {
